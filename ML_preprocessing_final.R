@@ -22,7 +22,7 @@ source(paste0("riskFactorsScripts/riskFactors-ANNAR/multivariate_analyses", "/he
 # Partial completers
 load("riskFactorsScripts/processedData/RF_partial_completers.rds")
 
-# Subset to given time range as data gets zodated
+# Subset to given time range as data gets updated
 RF_partial_completers <- RF_partial_completers %>%
   filter(as.Date(str_sub(gsub("_", "", as.character(timestamp))), 1, 8, format = "%Y%m%d") <= as.Date("2024-05-09"))
 
