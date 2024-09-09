@@ -1,0 +1,50 @@
+README
+
+This script takes care of data preparation and runs elastic net models. The data comes from completers of the Risk Factors challenge.
+
+Aims of the project:
+1. Test which risk factors have strongest associations with cognition in a multivariate analysis
+2. Test how much variance in cognition is explained by risk factors
+3. Eventually: Test if the relative importance of risk factors varies between age groups
+
+Data overview:
+10,571 people completed at least a part of the Risk Factors module.
+Features available:
+* 13 risk factors variables used in previous paper (https://osf.io/preprints/psyarxiv/rc4sy, see page 14 for overview)
+* covariates: age, gender
+* optional: additional covariates – operating system (iOS/Android), country of origin (LMIC/HIC), first language (English/other), tablet user (yes/no)
+* optional: additional risk factors variables: Mayo scale of cognitive fluctuations, attitudes to own ageing scale, hearing loss (yes/no)
+* optional: looking at item-level data in the entire challenge (but that would be good for prediction, not as much for rating the relative importance of each risk factor)
+
+Analyses description:
+1. Load data and packages
+2. Preprocessing & descriptive statistics
+  * Exclude people with missing data on any of the following cognitive measures (after these exclusions, n = 3,556):
+    * objective cognition: working memory, model-based planning, cognitive flexibility (=Trails B), and processing speed (=Trails A; this measure was not included in the previous paper but we can include it here if we want more cognitive data; missingness is comparable to Trails B)
+    * subjective cognition: subjective memory problems
+    * note: we could impute missing data for cognition but imputing missing data of the DV seems problematic
+ * Preprocessing applied both to full and partial completers
+3. Split data (both full and partial completers) to train/test set - 80/20 split
+    * stratified based on age, gender, and educational level
+    * there are no significant differences in cognition between train/test set
+    * QUESTION 1: IS THIS DONE CORRECTLY? IN SPITE OF SEGMENTING BASED ON GENDER, THERE ARE UNEVEN NUMBERS OF NON-CISGENDER PEOPLE IN EACH SUBSET,
+    PROBABLY DUE TO THE WAY STRATIFICATION IS DONE
+4. Missing data imputation
+    * Impute missing data for training dataset and then carry over estimated parameters to the test dataset
+    * Median for numerical variables, mode for categorical variables
+5. Scale variables
+    * Calculation:
+      * scaled_train =  (train - train_mean) / train_std_deviation
+      * scaled_test = (test - train_mean) / train_std_deviation
+      * i.e., carrying over scaling values from train to test set
+6. Generate composite cognitive scores
+7. Feature pre-selection
+  * Eventually I might exclude rarely endorsed variables at this point but for now only checking them out
+    * Checking binary variables that do not meet 10% endorsement
+8. Elastic net model - WORK IN PROGRESS
+    * Cross-validation options
+        1. Normal 10-fold cross-validation with 10 folds
+        2. Nested with 10 inner folds, 10 repeats, method = repeated cross-validation; and 10 outer folds
+        * QUESTION 2: WHEN I INCREASE GRID SIZE I GET WEIRD WARNINGS/ERRORS :( 
+9. Assess variable importance based on shap values in the final model
+ = TO BE DONE
