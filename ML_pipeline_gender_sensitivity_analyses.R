@@ -1861,10 +1861,8 @@ if(update_data == TRUE) {
   for (i in seq_along(main_dvs)) {
     dv <- main_dvs[i]
     if (dv == "avg_z") {
-      actual_train <- avg_z_train
       actual_test <- avg_z_test
     } else {
-      actual_train <- MemoryProblems_train
       actual_test <- MemoryProblems_test
     }
     # Load model files
@@ -1885,24 +1883,6 @@ if(update_data == TRUE) {
     print(files_list)
     
     for(j in seq_along(feature_list_names_reordered)) {
-      feature_list_train <- if(j ==1) {
-        trainSet_all_imp %>%
-          select(any_of(core_features_main_covariates))
-      } else if (j ==2) {
-        model.matrix(~ (`Lower SES` + Depression + `Less education` +
-                          `Small social network` + `Less exercise` +
-                          Loneliness + Hypertension + Tinnitus +
-                          `Ever smoked` + `Hearing handicap` + DFH +
-                          Age) * `Woman`, data = trainSet_all_imp) %>%
-          data.frame(., check.names = FALSE) %>%
-          select(-`(Intercept)`) %>%
-          rename_with(~ gsub("`", "", .x)) %>%
-          rename_with(~ sub(":", " * ", .x))
-      } else {
-        trainSet_all_imp %>%
-          select(any_of(main_covariates))
-      }
-      
       feature_list_test <- if(j ==1) {
         testSet_all_imp %>%
           select(any_of(core_features_main_covariates))
@@ -1922,29 +1902,21 @@ if(update_data == TRUE) {
       }
       
       # Generate predictions and performance metrics
-      pred_train <- predict(models_list[[j]], as.matrix(feature_list_train))
       pred_test <- predict(models_list[[j]], as.matrix(feature_list_test))
       
       if (i == 1) {
         # Generate performance metrics for binary outcome
-        # Train set
+        # Train set - extract metrics from model object, left-out outer folds
         cat("\nTrain set performance for", feature_list_names_reordered[j], "model\n")
-        pred_train_probs <- predict(models_list[[j]], as.matrix(feature_list_train), type = "prob")[,2]
+        pred_train <- models_list[[j]]$output$predy
+        actual_train <- models_list[[j]]$output$testy
+        pred_train_probs <- models_list[[j]]$output$predyp
         
-        TP <- sum(actual_train[[1]] == 1 & pred_train == "Yes")
-        TN <- sum(actual_train[[1]] == 0 & pred_train == "No")
-        FP <- sum(actual_train[[1]] == 0 & pred_train == "Yes")
-        FN <- sum(actual_train[[1]] == 1 & pred_train == "No")
+        auc_value <- models_list[[j]]$summary$metrics[["AUC"]]
+        accuracy <- models_list[[j]]$summary$metrics[["Accuracy"]]
+        balanced_accuracy <- models_list[[j]]$summary$metrics[["Balanced accuracy"]]
         
-        accuracy <- (TP + TN) / (TP + TN + FP + FN)
-        sensitivity <- TP / (TP + FN)
-        specificity <- TN / (TN + FP)
-        balanced_accuracy <- (sensitivity + specificity) / 2
-        
-        ROC <- suppressMessages(roc(actual_train[[1]], pred_train_probs, direction = "<"))
-        auc_value <- pROC::auc(ROC)
-        
-        output_for_mnLogLoss <- data.frame(obs = factor(actual_train[[1]], labels = c("No", "Yes")),
+        output_for_mnLogLoss <- data.frame(obs = actual_train,
                                            pred = pred_train,
                                            Yes = pred_train_probs,
                                            No = 1 - pred_train_probs)
@@ -1958,7 +1930,7 @@ if(update_data == TRUE) {
             "\nLog loss: ", round(ll, 3))
         
         # Generate performance metrics for binary outcome
-        # Test set
+        # Test set - calculate performance metrics manually by fitting final model to held-out data
         cat("\nTest set performance for", feature_list_names_reordered[j], "model\n")
         pred_test_probs <- predict(models_list[[j]], as.matrix(feature_list_test), type = "prob")[,2]
         
@@ -1997,12 +1969,15 @@ if(update_data == TRUE) {
         
       } else {
         # Generate performance metrics for continuous outcome
-        # Train set
+        # Train set - extract metrics from model object, left-out outer folds
         cat("\nTrain set performance for", feature_list_names_reordered[j], "model\n")
         
-        cor <- cor.test(pred_train, actual_train[[1]])$estimate
-        mae <- caret::MAE(pred_train, actual_train[[1]])
-        rmse <- caret::RMSE(pred_train, actual_train[[1]])
+        pred_train <- models_list[[j]]$output$predy
+        actual_train <- models_list[[j]]$output$testy
+        
+        cor <- cor.test(pred_train, actual_train)$estimate
+        mae <- caret::MAE(pred_train, actual_train)
+        rmse <- caret::RMSE(pred_train, actual_train)
         rsq <- cor^2
         
         performance_train <- c(rmse, mae, cor, rsq)
@@ -2012,7 +1987,7 @@ if(update_data == TRUE) {
         
         
         # Generate performance metrics for continuous outcome
-        # Test set
+        # Test set - calculate performance metrics manually by fitting final model to held-out data
         cat("\nTest set performance for", feature_list_names_reordered[j], "model\n")
         
         cor <- cor.test(pred_test, actual_test[[1]])$estimate
@@ -2073,7 +2048,6 @@ if(update_data == TRUE) {
   write_csv(performance_MemoryProblems, paste(pathname, "/output/model_performance/MemoryProblems_perf_table.csv", sep = ""))
   
 }
-
 # 8. Permutation analyses ------------------------------------------------------
 ## 8.1 Preparation -------------------------------------------------------------
 
