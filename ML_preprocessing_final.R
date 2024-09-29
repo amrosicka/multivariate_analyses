@@ -337,6 +337,64 @@ for (v in var_categorical) {
   print(prop.table(table(RF_full$Woman, RF_full[[v]])))
 }
 
+## Create correlation matrix
+# Define variables of interest
+core_features_main_covariates <- c("Lower SES", "Depression", "Less education",
+                                   "Small social network", "Less exercise", "Loneliness",
+                                   "Hypertension", "Tinnitus", "Ever smoked", "Hearing handicap", "DFH",
+                                   "Age")
+
+d <- RF_full %>%
+  select(!!core_features_main_covariates, -Woman) %>%
+  mutate(across(where(is.numeric), ~ as.numeric(.x))) %>%
+  data.frame()
+
+corrMatrix <- round(hetcor(d)$cor, 2)
+
+# Get only lower triangle of corr matrix
+corrMatrix[lower.tri(corrMatrix)] <- NA
+
+# Attach variable names
+colnames(corrMatrix) <- core_features_main_covariates[1:length(core_features_main_covariates)-1]
+rownames(corrMatrix) <- core_features_main_covariates[1:length(core_features_main_covariates)-1]
+
+# Melt data for plot purposes
+melted_corrMatrix <- melt(corrMatrix, na.rm = T)
+
+# Plot that
+corrMatrix_plot <- melted_corrMatrix %>%
+  ggplot(aes(Var2, Var1, fill = value))+
+  geom_tile(color = "white")+
+  scale_fill_gradient2(low = "#4477AA", high = "#85C660", mid = "white", 
+                       midpoint = 0, limit = c(-1,1), space = "Lab", 
+                       name="Correlation") +
+  geom_text(aes(Var2, Var1, label = value), color = "black",
+            family = font.family, size = 4) +
+  theme_cowplot()+ 
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank(),
+        axis.ticks = element_blank(),
+        legend.justification = c(1, 0),
+        legend.position = c(0.4, 0.7),
+        legend.direction = "horizontal",
+        axis.text.x = element_text(angle = 45, vjust = 1, size = 12, hjust = 1,
+                                   family = font.family),
+        axis.text.y = element_text(size = 12, family = font.family),
+        legend.text = element_text(size = 12, family = font.family),
+        legend.title = element_text(size = 12, family = font.family,face = "bold"),
+        plot.background = element_rect(fill = "white")) +
+  guides(fill = guide_colorbar(barwidth = 7, barheight = 1,
+                               title.position = "top", title.hjust = 0.5))
+
+corrMatrix_plot
+
+ggsave(corrMatrix_plot, file = paste0(pathname, "/figures/corrMatrix_supplement.png"),
+       height = 7, width = 7, dpi = 300)
+
+
 # ## Split data by age groups ------------------------------------------------------
 # # Extract median for median split
 # med_age <- median(RF_full$Age)
